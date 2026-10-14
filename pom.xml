@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 The ragfoundry Authors. Licensed under the Apache License, Version 2.0 (the "License"); see the
+  LICENSE file in the project root for the full license text.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    父 POM：Spring Boot 3.5.16 + Java 21。
+    - 3.5.16 是 3.5 线最后一个 OSS 补丁版本（OSS 支持已于 2026-06-30 结束）。
+    - 本仓的检索 / 切分 / 评测核心全部在 ragfoundry-core，
+      该模块【零 Spring 依赖】（由 CI 的 architecture-boundaries job 机器化守住），
+      因此升级到 Boot 4.x 时只需要动 starter 与 sample。
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.16</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>io.github.nephets</groupId>
+  <artifactId>ragfoundry</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>ragfoundry</name>
+  <description>Java 企业级 RAG 管线：中文友好切分 + BM25/向量双路检索 + RRF 融合 + 重排 + 效果可回归，改一版你知道是变好还是变坏</description>
+  <url>https://github.com/Nephets1010/ragfoundry</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>nephets</id>
+      <name>ragfoundry maintainers</name>
+      <url>https://github.com/Nephets1010</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <url>https://github.com/Nephets1010/ragfoundry</url>
+    <connection>scm:git:https://github.com/Nephets1010/ragfoundry.git</connection>
+  </scm>
+
+  <modules>
+    <module>ragfoundry-core</module>
+    <module>ragfoundry-spring-boot-starter</module>
+    <module>ragfoundry-sample</module>
+  </modules>
+
+  <properties>
+    <!--
+      ★ 预先定义一个空的 argLine 属性。
+        surefire / failsafe 用 @{argLine} 引用它，jacoco:prepare-agent 在运行期把
+        -javaagent:... 注入进来。若不预先定义，@{argLine} 会保持字面量不被解析，
+        导致 jacoco 找不到执行数据 —— 覆盖率报告为空，而 check 规则会因「无数据」静默通过。
+        那比没有门禁更危险：它会让人误以为覆盖率已达标。
+    -->
+    <argLine></argLine>
+    <java.version>21</java.version>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- ==== 锁版本：禁止用浮动版本号 ==== -->
+    <assertj.version>3.27.3</assertj.version>
+    <jackson.version>2.19.2</jackson.version>
+
+    <spotless.version>2.44.4</spotless.version>
+    <google-java-format.version>1.25.2</google-java-format.version>
+    <jacoco.version>0.8.13</jacoco.version>
+
+    <!--
+      ==== 覆盖率门禁 ====
+      显式声明 jacoco.skip=false：部分环境的 Maven 会给它注入默认值，
+      导致 report/check 被静默跳过 —— 覆盖率报告为空而构建照样成功，
+      这比没有门禁更危险。
+    -->
+    <jacoco.skip>false</jacoco.skip>
+    <jacoco.line.minimum>0.60</jacoco.line.minimum>
+
+    <!--
+      ★ jacoco 执行数据存放位置：放进每个模块的 target/ 下（纯 ASCII），
+      既绕开 Windows 中文路径截断 -javaagent 参数的坑，又被 `mvn clean` 一并清掉，
+      避免上一轮 .exec 污染本轮回填的覆盖率。每个模块用 artifactId 命名避免互相覆盖。
+      本地从纯 ASCII 路径（/d/tmp/verify/ragfoundry）构建，CI 在 Linux 上亦然，
+      均不依赖任何项目外目录。
+    -->
+    <jacoco.dest.dir>${project.build.directory}/${project.artifactId}.exec</jacoco.dest.dir>
+
+    <!-- 测试 JVM 堆大小：显式设限，避免容器内存受限时 fork 出的 VM 直接崩溃 -->
+    <rf.test.heap>512m</rf.test.heap>
+
+    <!-- 构建提速：本仓不发布 javadoc -->
+    <maven.javadoc.skip>true</maven.javadoc.skip>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.github.nephets</groupId>
+        <artifactId>ragfoundry-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.nephets</groupId>
+        <artifactId>ragfoundry-spring-boot-starter</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>${assertj.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!--
+    ★ 刻意不在父 POM 的 <dependencies> 里声明通用依赖。
+      各子模块按需显式声明自己真正用到的依赖，这样
+      「core 零 Spring 依赖」这条边界才能被 CI 机器化判定。
+  -->
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <release>${maven.compiler.release}</release>
+            <parameters>true</parameters>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <includes>
+              <include>**/*Test.java</include>
+            </includes>
+            <excludes>
+              <exclude>**/*IT.java</exclude>
+            </excludes>
+            <argLine>@{argLine} -Xmx${rf.test.heap} -Xms64m -XX:+ExitOnOutOfMemoryError</argLine>
+            <!--
+              ★ 显式指定 fork 的工作目录：jacoco agent 的相对 destFile 正是按它解析的。
+              不指定时不同 Maven/surefire 版本解析基准不同（有的按 reactor 根、有的按模块目录），
+              导致执行数据找不到、覆盖率门禁静默失效。这里钉死为当前模块目录。
+            -->
+            <workingDirectory>${project.basedir}</workingDirectory>
+            <forkCount>1</forkCount>
+            <reuseForks>true</reuseForks>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <configuration>
+            <includes>
+              <include>**/*IT.java</include>
+            </includes>
+            <argLine>@{argLine} -Xmx${rf.test.heap}</argLine>
+            <workingDirectory>${project.basedir}</workingDirectory>
+            <forkCount>1</forkCount>
+            <reuseForks>true</reuseForks>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <!--
+        ==== 每次构建先清空本模块的 jacoco .exec ====
+        ★ 为什么必须显式清：jacoco.dest.dir 在项目之外（为了绕开中文路径），
+          mvn clean 管不到那里。残留的 .exec 会被下一轮的 report/check 读进去，
+          于是覆盖率反映的是【上一次】构建 —— 既可能是早已删除的测试留下的，
+          也可能让本次的新测试「白写」。
+          覆盖率报告的唯一价值是反映当前代码，混入历史数据等于毁掉它。
+          必须绑在 initialize（早于 prepare-agent），否则本轮数据会被自己删掉。
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>clean-stale-jacoco-data</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <!-- failonerror=false：CI 上是 Linux 路径，删一个不存在的文件不该让构建失败 -->
+                <delete file="${jacoco.dest.dir}" failonerror="false" quiet="true"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- ==== 强制 Java 21 与 Maven 版本 ==== -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-build-environment</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,22)</version>
+                  <message>本项目需要 JDK 21（使用 record pattern 与虚拟线程友好的设计）。当前 java.home=$(java.home)</message>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9.9,)</version>
+                </requireMavenVersion>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes>
+                    <exclude>io.github.nephets:llm-switchyard*</exclude>
+                    <exclude>io.github.nephets:agentswitchyard*</exclude>
+                  </excludes>
+                  <message>禁止依赖另两个 LLM 基建仓库，三仓互相独立，理由见 ADR-0001</message>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        ==== 统一代码格式 + Apache-2.0 许可证头 ====
+        ★ 绑的是 check 而不是 apply。
+          绑 apply 等于「构建时自动改代码」，本地永远绿、CI 永远绿，
+          但仓库里提交的可能是没格式化的代码 —— 门禁自我欺骗。
+      -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <java>
+            <includes>
+              <include>src/main/java/**/*.java</include>
+              <include>src/test/java/**/*.java</include>
+            </includes>
+            <licenseHeader>
+              <file>${maven.multiModuleProjectDirectory}/LICENSE-HEADER.txt</file>
+            </licenseHeader>
+            <googleJavaFormat>
+              <version>${google-java-format.version}</version>
+              <style>AOSP</style>
+            </googleJavaFormat>
+            <removeUnusedImports/>
+            <importOrder>
+              <order>com,io,org,javax,java,\#</order>
+            </importOrder>
+          </java>
+          <formats>
+            <format>
+              <includes>
+                <include>*.md</include>
+                <include>docs/**/*.md</include>
+              </includes>
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+            </format>
+          </formats>
+        </configuration>
+      </plugin>
+
+      <!-- ==== 覆盖率：报告 + 门禁（阈值见各模块的 jacoco.line.minimum） ==== -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <destFile>${jacoco.dest.dir}</destFile>
+              <append>false</append>
+            </configuration>
+          </execution>
+          <execution>
+            <id>prepare-agent-integration</id>
+            <goals>
+              <goal>prepare-agent-integration</goal>
+            </goals>
+            <configuration>
+              <!--
+                ★ 集成测试的数据「追加」到与单元测试相同的文件，而不是另存 -it.exec 再 merge。
+                理由：jacoco:merge 的 fileSet 语义在「某些文件不存在」时会直接报 fileSets 缺失
+                （core 模块就没有 *IT.java），踩过一次就够了。让两份数据自然累积到一个文件，
+                既省掉 merge 这一步，也彻底消除那类只在特定模块组合下复现的构建故障。
+              -->
+              <destFile>${jacoco.dest.dir}</destFile>
+              <append>true</append>
+            </configuration>
+          </execution>
+          <execution>
+            <id>coverage-report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <dataFile>${jacoco.dest.dir}</dataFile>
+              <formats>
+                <format>HTML</format>
+                <format>XML</format>
+                <format>CSV</format>
+              </formats>
+            </configuration>
+          </execution>
+          <execution>
+            <id>coverage-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <haltOnFailure>true</haltOnFailure>
+              <dataFile>${jacoco.dest.dir}</dataFile>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>${jacoco.line.minimum}</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
