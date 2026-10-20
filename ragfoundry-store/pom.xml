@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2026 The ragfoundry Authors. Licensed under the Apache License, Version 2.0 (the "License"); see the
+  LICENSE file in the project root for the full license text.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.nephets</groupId>
+    <artifactId>ragfoundry</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>ragfoundry-store</artifactId>
+  <name>ragfoundry-store</name>
+  <description>RAG 存储实现：内存向量索引 InMemoryVectorStore（暴力余弦 + LRU 容量上限）。依赖 contract 的 VectorStore 接口与值对象。</description>
+
+  <properties>
+    <!-- store 是单类实现，覆盖门禁收紧到 0.70 -->
+    <jacoco.line.minimum>0.70</jacoco.line.minimum>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.nephets</groupId>
+      <artifactId>ragfoundry-contract</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
