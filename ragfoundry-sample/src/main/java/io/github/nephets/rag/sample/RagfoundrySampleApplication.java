@@ -51,7 +51,9 @@ public class RagfoundrySampleApplication {
         List<ScoredChunk> hits = retriever.retrieve("怎么做向量检索", 2);
         log.info("检索命中 {} 个切片", hits.size());
         for (ScoredChunk hit : hits) {
-            System.out.printf("%.4f  %s%n", hit.score(), hit.chunk().text());
+            // 分数固定四位小数、与文本之间两个空格，列宽保持稳定便于人眼比对；
+            // 这是给人读的叙述而非机器解析的契约，所以保留原有版式、只把输出口换成 SLF4J。
+            log.info("{}  {}", String.format("%.4f", hit.score()), hit.chunk().text());
         }
     }
 }
