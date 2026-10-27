@@ -116,6 +116,13 @@ ragfoundry:
 `Retriever.index`/`retrieve` 只做：切片 → 批量向量化 → 写库 →（查询时）向量化 → 查库 → 按序回填原文。它不缓存任何业务语义，向量库与嵌入模型都可外部注入。
 **收益**：换实现（或换测试替身）时 `Retriever` 一行不改；单元测试可纯函数式地验证「索引后检索能命中正确来源文档」，无需启动 Spring。
 
+### 11. 为什么主源码统一走 SLF4J，而不是直接写 `System.out`
+
+示例应用原来用 `System.out.printf` 打印检索命中。这类直写 stdout 的输出绕过日志框架：不受级别控制、关不掉，也没有时间戳与线程名，混入日志流后还会打散多行输出的列对齐。
+**决策**：主源码里的叙述性输出一律交给 SLF4J；示例应用那处保留原有版式（分数四位小数、与文本之间两个空格）只换输出口，异常也不再用 `printStackTrace()` 兜底——要么抛出，要么记日志。这条由 `ragfoundry-spring-boot-starter` 的 `StdoutHygieneTest` 在构建期强制：它扫描五个模块的 `src/main/java`，`System.out` / `System.err` / `System.console()` / `setOut` / `setErr` / `printStackTrace()` / `FileDescriptor.out|err` 命中即失败，并对扫描到的文件数设下限、防止路径改坏后「扫不到就算通过」。
+**收益**：日志可按级别过滤、可被采集、来源可定位；「改过一次」因此变成构建期持续判据，不会被人遗忘后悄悄退回。
+**豁免**：「快速开始」片段里的 `System.out.println` 是给读者直接粘贴运行的文档示例，不在门禁范围内——守卫只扫 `src/main/java`，README 不在其中。
+
 ---
 
 ## 构建与测试
